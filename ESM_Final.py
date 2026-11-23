@@ -52,12 +52,6 @@ h[i_toe:] = h[i_toe] + Q0*(x[i_toe:] - x[i_toe])/T
 h_sol[:,0] = h
 zeta_sol[:,0] = zeta
 
-plt.figure()
-plt.plot(x, zeta, 'k-', linewidth=2)
-plt.xlabel('x (m)')
-plt.ylabel(r'Interface elevation $\zeta$ (m)')
-plt.title('Initial interface')
-plt.show()
 
 # %% Build the head matrix for eq. (1)
 #Head matrix for eq. (1), S = 0 so it never changes
@@ -112,23 +106,6 @@ for i in range(nt):
     h_sol[:,i+1] = h
     zeta_sol[:,i+1] = zeta
 
-# %% Figure: interface every 50 years (compare with Bakker Fig. 1a)
-plt.figure(figsize=(10, 5))
-for yr in range(0, tf+1, 50):
-    j = int(yr/dt)
-    if yr == 0:
-        plt.plot(x, zeta_sol[:,j], 'k-', linewidth=2, label='Initial')
-    else:
-        plt.plot(x, zeta_sol[:,j], color='gray', linewidth=1)
-plt.axvline(x_dit, color='b', linestyle=':', label='Gallery')
-#plt.axvline(x_dit_b, color='b', linestyle=':')
-plt.ylim(zb, 5)
-plt.xlabel('x (m)')
-plt.ylabel(r'Interface elevation $\zeta$ (m)')
-plt.title('Upconing of the interface below the gallery, every 50 yr')
-plt.legend()
-plt.show()
-
 # %% Results: pumping rate vs. rise of the interface under the ditch
 #Science question: how does the pumping rate change the rise under the ditch over 100 yr?
 tf2 = 100
@@ -181,23 +158,149 @@ for frac in [.25, .5, .75]:
     zeta_end.append(zeta)
     print(f'Q = {frac} Q0: interface under the gallery after {tf2} yr = {round(z_d[-1], 1)} m')
 
-plt.figure()
-for j in range(3):
-    plt.plot(t2, zeta_dit[j], label=f'Q = {[.25, .5, .75][j]} Q0')
-plt.xlabel('Time (yr)')
-plt.ylabel(r'$\zeta$ under the gallery (m)')
-plt.title('Rise of the interface below the ditch')
-plt.legend()
+# %% Figure style (same look for every figure)
+plt.rcParams.update({'font.size': 12, 'axes.titlesize': 13, 'axes.labelsize': 12,
+                     'legend.fontsize': 10, 'axes.spines.top': False, 'axes.spines.right': False})
+c_rate = ['#2a78d6', '#eb6834', '#1baf7a']   #25%, 50%, 75% of Q0 (same colors in every figure)
+rates = [.25, .5, .75]
+
+# %% Figure 1: initial interface (steady state with no pumping)
+plt.figure(figsize=(9, 4.5))
+plt.fill_between(x, zeta_sol[:,0], zt, color='#cde2fb', label='Freshwater')
+plt.fill_between(x, zb, zeta_sol[:,0], color='#d9d8d4', label='Saltwater')
+plt.plot(x, zeta_sol[:,0], 'k-', linewidth=2, label=r'Interface $\zeta$')
+plt.plot(x_dit, zt, 'kv', markersize=10, label=f'Gallery (x = {x_dit} m)')
+plt.xlim(0, L)
+plt.ylim(zb, zt + 3)
+plt.xlabel('Distance from the coast, x (m)')
+plt.ylabel('Elevation, z (m)')
+plt.title('Figure 1. Initial interface for uniform flow $Q_0$ = 0.1 m$^2$/d, no pumping')
+plt.legend(loc='lower right')
+plt.tight_layout()
+plt.savefig('fig1_initial_interface.png', dpi=200)
 plt.show()
 
-plt.figure()
+# %% Figure 2: interface every 50 years for 500 years at 50% pumping, with the steady solution
+#steady solution seaward of the gallery (Glover 1959): flow drops to Q0 - Qd
+zeta_ss = -np.sqrt(zeta0**2 + 2*(Q0 - Qd)*x/(k*nus))
+zeta_ss[zeta_ss < zb] = zb
+
+years = np.arange(50, tf+1, 50)
+blues = plt.cm.Blues(np.linspace(0.35, 1, len(years)))
+plt.figure(figsize=(9, 4.5))
+plt.plot(x, zeta_sol[:,0], 'k-', linewidth=2, label='Initial (t = 0)')
+for j in range(len(years)):
+    plt.plot(x, zeta_sol[:,int(years[j]/dt)], color=blues[j], linewidth=1.5)
+plt.plot(x[:i_dit+1], zeta_ss[:i_dit+1], 'k--', linewidth=1.5, label='Steady solution, seaward of gallery')
+plt.axvline(x_dit, color='gray', linestyle=':', label='Gallery')
+sm = plt.cm.ScalarMappable(cmap=plt.cm.colors.ListedColormap(blues), norm=plt.Normalize(25, tf+25))
+plt.colorbar(sm, ax=plt.gca(), ticks=years[::2], label='Time (yr)')
+plt.xlim(0, 800)
+plt.ylim(zb, zt)
+plt.xlabel('Distance from the coast, x (m)')
+plt.ylabel(r'Interface elevation, $\zeta$ (m)')
+plt.title('Figure 2. Interface every 50 yr, pumping 50% of $Q_0$ for 500 yr')
+plt.legend(loc='upper right')
+plt.tight_layout()
+plt.savefig('fig2_interface_every_50yr.png', dpi=200)
+plt.show()
+
+# %% Figure 3: interface beneath the gallery over 100 years at each pumping rate
+plt.figure(figsize=(9, 4.5))
 for j in range(3):
-    plt.plot(x, zeta_end[j], label=f'Q = {[.25, .5, .75][j]} Q0')
-plt.axvline(x_dit, color='b', linestyle=':')
-#plt.axvline(x_dit_b, color='b', linestyle=':')
-plt.ylim(zb, 5)
-plt.xlabel('x (m)')
-plt.ylabel(r'Interface elevation $\zeta$ (m)')
-plt.title(f'Interface after {tf2} yr')
-plt.legend()
+    zeta_ss_j = -np.sqrt(zeta0**2 + 2*(Q0 - rates[j]*Q0)*x_dit/(k*nus))
+    plt.plot(t2, zeta_dit[j], color=c_rate[j], linewidth=2, label=f'{int(rates[j]*100)}% of $Q_0$')
+    plt.axhline(zeta_ss_j, color=c_rate[j], linestyle='--', linewidth=1)
+    plt.text(tf2 + 1, zeta_dit[j][-1], f'{zeta_dit[j][-1]:.1f} m'.replace('-', '\u2212'), va='center', fontsize=10)
+plt.plot([], [], 'k--', linewidth=1, label='Steady solution')
+plt.xlim(0, tf2 + 12)
+plt.ylim(-29, -12)
+plt.xlabel('Time since pumping began (yr)')
+plt.ylabel(r'$\zeta$ beneath the gallery (m)')
+plt.title(f'Figure 3. Rise of the interface beneath the gallery (x = {x_dit} m)')
+plt.legend(loc='upper left', ncol=2)
+plt.tight_layout()
+plt.savefig('fig3_rise_beneath_gallery.png', dpi=200)
+plt.show()
+
+# %% Figure 4: interface along the cross-section after 100 years at each pumping rate
+plt.figure(figsize=(9, 4.5))
+plt.plot(x, zeta_sol[:,0], 'k-', linewidth=2, label='Initial')
+for j in range(3):
+    plt.plot(x, zeta_end[j], color=c_rate[j], linewidth=2, label=f'{int(rates[j]*100)}% of $Q_0$, 100 yr')
+plt.axvline(x_dit, color='gray', linestyle=':', label='Gallery')
+plt.xlim(0, 800)
+plt.ylim(zb, zt)
+plt.xlabel('Distance from the coast, x (m)')
+plt.ylabel(r'Interface elevation, $\zeta$ (m)')
+plt.title('Figure 4. Interface after 100 yr at each pumping rate')
+plt.legend(loc='lower right')
+plt.tight_layout()
+plt.savefig('fig4_interface_after_100yr.png', dpi=200)
+plt.show()
+
+# %% Figure 5: does the answer change with the time step or the grid spacing? (50% pumping, 100 yr)
+dt_test = [1, 0.5, 0.25, 0.1]     #time steps to try (yr)
+nx_test = [51, 101, 201]          #number of cells to try (dx = 20, 10, 5 m)
+cases = [(nx, d) for d in dt_test] + [(m, dt) for m in nx_test]
+zeta_case = []
+for (nx_c, dt_c) in cases:
+    x_c = np.linspace(0,L,nx_c)
+    dx_c = x_c[1] - x_c[0]
+    i_c = int(round(x_dit/dx_c))
+    nt_c = int(round(tf2/dt_c))
+    dtd_c = dt_c*365.25
+    zeta = -np.sqrt(zeta0**2 + 2*Q0*x_c/(k*nus))
+    zeta[zeta < zb] = zb
+    data = np.array([(T/dx_c)*np.ones(nx_c), (-2*T/dx_c)*np.ones(nx_c), (T/dx_c)*np.ones(nx_c)])
+    M_c = sp.sparse.spdiags(data, diags, nx_c, nx_c).toarray()
+    M_c[0,:] = 0
+    M_c[0,0] = 1
+    M_c[-1,-1] = -T/dx_c
+    M_c_inv = np.linalg.inv(M_c)
+    for i in range(nt_c):
+        tau = k*nus*((zeta[1:] + zeta[:-1])/2 - zb)
+        tau[tau < 0] = 0
+        F_zeta = tau*(zeta[1:] - zeta[:-1])/dx_c
+        R_h = np.zeros(nx_c)
+        R_h[1:] = R_h[1:] + F_zeta
+        R_h[1:-1] = R_h[1:-1] - F_zeta[1:]
+        R_h[-1] = R_h[-1] - Q0
+        R_h[i_c] = R_h[i_c] + 0.5*Q0
+        R_h[0] = h0
+        h = M_c_inv @ R_h
+        lower = np.append(tau, 0)/dx_c
+        upper = np.append(0, tau)/dx_c
+        main = -n*dx_c/dtd_c - (np.append(0, tau) + np.append(tau, 0))/dx_c
+        M_z = sp.sparse.spdiags(np.array([lower, main, upper]), diags, nx_c, nx_c).toarray()
+        M_z[0,:] = 0
+        M_z[0,0] = 1
+        F_h = tau*(h[1:] - h[:-1])/(dx_c*nus)
+        R_z = -n*dx_c/dtd_c*zeta
+        R_z[1:] = R_z[1:] + F_h
+        R_z[1:-1] = R_z[1:-1] - F_h[1:]
+        R_z[0] = zeta0
+        zeta = np.linalg.inv(M_z) @ R_z
+        zeta[zeta < zb] = zb
+        zeta[zeta > zt] = zt
+    zeta_case.append(zeta[i_c])
+    print(f'dx = {dx_c:.0f} m, dt = {dt_c} yr: interface under the gallery after {tf2} yr = {zeta[i_c]:.2f} m')
+
+fig, ax = plt.subplots(1, 2, figsize=(9, 4), sharey=True)
+ax[0].plot(dt_test, zeta_case[:4], 'o-', color=c_rate[1], markersize=8)
+ax[0].set_xscale('log')
+ax[0].set_xticks(dt_test)
+ax[0].set_xticklabels([str(d) for d in dt_test])
+ax[0].minorticks_off()
+ax[0].set_xlabel(r'Time step, $\Delta t$ (yr)')
+ax[0].set_ylabel(r'$\zeta$ beneath the gallery at 100 yr (m)')
+ax[0].set_title(r'Time step ($\Delta x$ = 10 m)')
+ax[1].plot(L/(np.array(nx_test) - 1), zeta_case[4:], 's-', color=c_rate[1], markersize=8)
+ax[1].set_xticks([5, 10, 20])
+ax[1].set_xlabel(r'Grid spacing, $\Delta x$ (m)')
+ax[1].set_title(r'Grid spacing ($\Delta t$ = 0.5 yr)')
+ax[0].set_ylim(np.mean(zeta_case) - 0.5, np.mean(zeta_case) + 0.5)
+fig.suptitle('Figure 5. Sensitivity to numerical choices, 50% of $Q_0$')
+plt.tight_layout()
+plt.savefig('fig5_numerical_sensitivity.png', dpi=200)
 plt.show()
